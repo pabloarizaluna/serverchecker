@@ -1,4 +1,4 @@
-package data
+package serverchecker
 
 import "github.com/google/uuid"
 
@@ -10,6 +10,7 @@ type Domain struct {
 	Logo             string    `json:"logo"`
 	Title            string    `json:"title"`
 	IsDown           bool      `json:"is_down"`
+	Name             string    `json:"info"`
 }
 
 type Server struct {
@@ -19,4 +20,25 @@ type Server struct {
 	SslGrade string    `json:"ssl_grade"`
 	Country  string    `json:"country"`
 	Owner    string    `json:"owner"`
+}
+
+type DomainStore interface {
+	Domain(id uuid.UUID) (Domain, error)
+	Domains() ([]Domain, error)
+	CreateDomain(d *Domain) error
+	UpdateDomain(d *Domain) error
+	DeleteDomain(id uuid.UUID) error
+}
+
+type ServerStore interface {
+	Server(id uuid.UUID) (Server, error)
+	Servers(domainID uuid.UUID) ([]Server, error)
+	CreateServer(s *Server) error
+	UpdateServer(s *Server) error
+	DeleteServer(id uuid.UUID) error
+}
+
+type Store interface {
+	DomainStore
+	ServerStore
 }
