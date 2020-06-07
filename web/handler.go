@@ -5,40 +5,42 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/pabloarizaluna/serverchecker"
+
 	"github.com/buaazp/fasthttprouter"
 	"github.com/valyala/fasthttp"
 )
 
-// Server represents the services
-type Server struct {
-	R *fasthttprouter.Router
+type Handler struct {
+	*fasthttprouter.Router
+
+	store serverchecker.Store
 }
 
-// NewServer return a server configured
-func NewServer() *Server {
-	s := &Server{fasthttprouter.New()}
-	s.R.GET("/check/:domain", s.checkDomain)
-	s.R.GET("/domain", s.domains)
+func NewHandler() *Handler {
+	h := &Handler{Router: fasthttprouter.New()}
+	h.GET("/check/:domain", h.checkDomain)
+	h.GET("/domain", h.domains)
 
-	return s
+	return h
 }
 
-func (s *Server) checkDomain(ctx *fasthttp.RequestCtx) {
+func (s *Handler) checkDomain(ctx *fasthttp.RequestCtx) {
 	fmt.Fprint(ctx, "Checking...")
 	request := fmt.Sprintf("https://api.ssllabs.com/api/v3/analyze?host=%s", ctx.UserValue("domain"))
 	resp, err := http.Get(request)
 	if err != nil {
-		return
+		fmt.Fprint(ctx, err.Error())
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return
+		fmt.Fprint(ctx, err.Error())
 	}
 
 	fmt.Fprint(ctx, string(body))
 }
 
-func (s *Server) domains(ctx *fasthttp.RequestCtx) {
+func (s *Handler) domains(ctx *fasthttp.RequestCtx) {
 	fmt.Fprint(ctx, "Loading items...")
 }

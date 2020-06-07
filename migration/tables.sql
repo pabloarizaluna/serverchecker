@@ -5,7 +5,8 @@ CREATE TABLE IF NOT EXISTS domains (
     previous_ssl_grade TEXT NOT NULL,
     logo TEXT NOT NULL,
     title TEXT NOT NULL,
-    is_down BOOLEAN NOT NULL
+    is_down BOOLEAN NOT NULL,
+    name TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS servers (
