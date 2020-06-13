@@ -12,10 +12,10 @@ type DomainStore struct {
 	*sql.DB
 }
 
-func (s *DomainStore) Domain(id uuid.UUID) (serverchecker.Domain, error) {
+func (s *DomainStore) Domain(name string) (serverchecker.Domain, error) {
 	var d serverchecker.Domain
-	const query = `SELECT id, servers_changed, is_down, ssl_grade, previous_ssl_grade, logo, title, name FROM domains WHERE id=$1`
-	if err := s.DB.QueryRow(query, id).Scan(
+	const query = `SELECT id, servers_changed, is_down, ssl_grade, previous_ssl_grade, logo, title, name FROM domains WHERE name=$1`
+	if err := s.DB.QueryRow(query, name).Scan(
 		&d.ID,
 		&d.ServersChanged,
 		&d.IsDown,
@@ -23,8 +23,8 @@ func (s *DomainStore) Domain(id uuid.UUID) (serverchecker.Domain, error) {
 		&d.PreviousSslGrade,
 		&d.Logo,
 		&d.Title,
-		&d.Name); err != nil {
-		return serverchecker.Domain{}, fmt.Errorf("Error getting domain: %w", err)
+		&d.Host); err != nil {
+		return serverchecker.Domain{}, err
 	}
 
 	return d, nil
@@ -47,7 +47,7 @@ func (s *DomainStore) Domains() ([]serverchecker.Domain, error) {
 			&d.PreviousSslGrade,
 			&d.Logo,
 			&d.Title,
-			&d.Name); err != nil {
+			&d.Host); err != nil {
 			return []serverchecker.Domain{}, fmt.Errorf("Error getting domain: %w", err)
 		}
 		dd = append(dd, d)
@@ -67,7 +67,7 @@ func (s *DomainStore) CreateDomain(d *serverchecker.Domain) error {
 		d.Logo,
 		d.Title,
 		d.IsDown,
-		d.Name); err != nil {
+		d.Host); err != nil {
 		return fmt.Errorf("Error creating domain: %w", err)
 	}
 	return nil
@@ -82,7 +82,7 @@ func (s *DomainStore) UpdateDomain(d *serverchecker.Domain) error {
 		d.Logo,
 		d.Title,
 		d.IsDown,
-		d.Name,
+		d.Host,
 		d.ID); err != nil {
 		return fmt.Errorf("Error updating domain: %w", err)
 	}
