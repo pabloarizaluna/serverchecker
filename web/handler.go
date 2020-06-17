@@ -5,8 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
+	"log"
 	"os/exec"
 	"regexp"
 
@@ -44,6 +43,7 @@ func NewHandler(store serverchecker.Store) *Handler {
 }
 
 func (h *Handler) checkDomain(ctx *fasthttp.RequestCtx) {
+	log.Println("Request gotten in /check")
 	name := ctx.UserValue("domain").(string)
 	var dat map[string]interface{}
 
@@ -53,12 +53,12 @@ func (h *Handler) checkDomain(ctx *fasthttp.RequestCtx) {
 	for !ready {
 		resp, err := makeGetRequest(request)
 		if err != nil {
-			fmt.Fprint(ctx, err.Error())
+			ctx.Error("Error fetching data from "+request, fasthttp.StatusInternalServerError)
 			return
 		}
 
 		if err := json.Unmarshal(resp, &dat); err != nil {
-			fmt.Fprint(ctx, err.Error())
+			ctx.Error("Error unmarshal JSON from ssllabs", fasthttp.StatusInternalServerError)
 			return
 		}
 
@@ -71,7 +71,7 @@ func (h *Handler) checkDomain(ctx *fasthttp.RequestCtx) {
 	// Checking if there any result saved
 	d, err := h.store.Domain(name)
 	if err != nil && err != sql.ErrNoRows {
-		fmt.Fprint(ctx, err.Error())
+		ctx.Error("Error getting Domain: "+err.Error(), fasthttp.StatusInternalServerError)
 		return
 	}
 
@@ -81,12 +81,12 @@ func (h *Handler) checkDomain(ctx *fasthttp.RequestCtx) {
 	}
 
 	if err := updateHTMLInfo(&d); err != nil {
-		fmt.Fprint(ctx, err.Error())
+		ctx.Error(err.Error(), fasthttp.StatusInternalServerError)
 		return
 	}
 
 	if err := getServers(&d, dat); err != nil {
-		fmt.Fprint(ctx, err.Error())
+		ctx.Error(err.Error(), fasthttp.StatusInternalServerError)
 		return
 	}
 
@@ -102,21 +102,17 @@ func (h *Handler) checkDomain(ctx *fasthttp.RequestCtx) {
 
 	result, err := json.Marshal(d)
 	if err != nil {
-		fmt.Fprint(ctx, err.Error())
+		ctx.Error(err.Error(), fasthttp.StatusInternalServerError)
 		return
 	}
 
-	fmt.Fprint(ctx, string(result))
+	ctx.Success("application/json", result)
 }
 
 func makeGetRequest(request string) ([]byte, error) {
-	resp, err := http.Get(request)
-	if err != nil {
-		return []byte{}, err
-	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
+	var dst []byte
+	statusCode, body, err := fasthttp.Get(dst, request)
+	if err != nil || statusCode != fasthttp.StatusOK {
 		return []byte{}, err
 	}
 
@@ -202,11 +198,12 @@ func getServers(d *serverchecker.Domain, dat map[string]interface{}) error {
 }
 
 func (h *Handler) domains(ctx *fasthttp.RequestCtx) {
+	log.Println("Request gotten in /domain")
 	var history []string
 
 	dd, err := h.store.Domains()
 	if err != nil {
-		fmt.Fprint(ctx, err.Error())
+		ctx.Error(err.Error(), fasthttp.StatusInternalServerError)
 		return
 	}
 
@@ -214,9 +211,14 @@ func (h *Handler) domains(ctx *fasthttp.RequestCtx) {
 		history = append(history, d.Host)
 	}
 
-	enc := json.NewEncoder(ctx)
 	resp := map[string][]string{"items": history}
-	enc.Encode(resp)
+	result, err := json.Marshal(resp)
+	if err != nil {
+		ctx.Error(err.Error(), fasthttp.StatusInternalServerError)
+		return
+	}
+
+	ctx.Success("application/json", result)
 }
 
 func lowerGrade(ss []serverchecker.Server) string {
